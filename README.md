@@ -1,2 +1,1 @@
-# A unified API for Telegram, Viber and Facebook
-Write code once to rule 'em all.
+# Message router for Soulful, based on [unapi](https://github.com/DeNice-r/unapi)
