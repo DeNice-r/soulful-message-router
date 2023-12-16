@@ -1,6 +1,7 @@
 import logging
+from typing import List
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 
 from unapi.event import EventFactory
 from unapi import platforms
@@ -14,6 +15,8 @@ app = FastAPI()
 
 webhook_path = environ["WEBHOOK_PATH"]
 
+ws_clients: List[WebSocket] = []
+last_event = None
 
 @app.get("/")
 async def index():
@@ -37,7 +40,14 @@ async def webhook_callback(request: Request):
     except ValueError as e:
         logging.warning(f"Error: {e}")
         return HTTPException(status_code=400, detail=str(e))
-    event.send_message(event.text)
+
+    global last_event
+    last_event = event
+    # event.send_message(event.text)
+
+    for client in ws_clients:
+        await client.send_text(event.text)
+
     return "OK"
 
 
@@ -52,3 +62,18 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
     if verify_token == facebook_verification_token and mode == "subscribe":
         return challenge
     raise HTTPException(status_code=403, detail="Invalid key")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    ws_clients.append(websocket)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+
+            if last_event:
+                last_event.send_message(data)
+    except Exception as e:
+        ws_clients.remove(websocket)
