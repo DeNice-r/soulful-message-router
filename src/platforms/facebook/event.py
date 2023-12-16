@@ -5,10 +5,10 @@ from typing import List
 
 from starlette.requests import Request
 
-from unapi.event import Event
-from unapi.attachment import Attachment, AttachmentType
-from unapi.platforms.facebook import api
-from unapi.platforms.facebook.model import Model
+from src.event import Event
+from src.attachment import Attachment, AttachmentType
+from src.platforms.facebook import api
+from src.platforms.facebook.model import Model
 
 from os import environ, path
 from dotenv import load_dotenv

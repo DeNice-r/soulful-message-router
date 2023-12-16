@@ -2,10 +2,10 @@ import requests
 from pydantic import BaseModel
 from starlette.requests import Request
 
-from unapi.attachment import Attachment, AttachmentType
-from unapi.platforms.telegram import api
-from unapi.platforms.telegram.model import Model
-from unapi.event import Event
+from src.attachment import Attachment, AttachmentType
+from src.platforms.telegram import api
+from src.platforms.telegram.model import Model
+from src.event import Event
 
 from os import environ, path
 

@@ -2,8 +2,8 @@ import pytest
 from typing import AsyncIterator
 from httpx import AsyncClient
 
-import unapi.webhooks as webhooks
-from unapi.main import app
+import src.webhooks as webhooks
+from src.main import app
 from dotenv import load_dotenv
 from os import environ
 
@@ -26,7 +26,7 @@ class TestMain:
 
     # @pytest.mark.anyio
     # async def test_init(self, client: AsyncClient, mocker):
-    #     mocker.patch('unapi.webhooks.init', return_value=None)
+    #     mocker.patch('src.webhooks.init', return_value=None)
     #     response = await client.get('/init')
     #     assert response.status_code == 200
     #     assert response.json() == "I'm ok"

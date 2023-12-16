@@ -3,10 +3,10 @@ from typing import List
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 
-from unapi.event import EventFactory
-from unapi import platforms
+from src.event import EventFactory
+from src import platforms
 
-from unapi.webhooks import init as webhooks_init
+from src.webhooks import init as webhooks_init
 
 from os import environ
 
@@ -17,6 +17,7 @@ webhook_path = environ["WEBHOOK_PATH"]
 
 ws_clients: List[WebSocket] = []
 last_event = None
+
 
 @app.get("/")
 async def index():

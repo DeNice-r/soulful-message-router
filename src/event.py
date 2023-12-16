@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 from typing import Union, List
 
-from unapi.util import AbcNoPublicConstructor
-from unapi.attachment import Attachment
+from src.util import AbcNoPublicConstructor
+from src.attachment import Attachment
 
 from abc import abstractmethod
 from fastapi import Request
