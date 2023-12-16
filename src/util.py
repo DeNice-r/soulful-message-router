@@ -95,4 +95,4 @@ class AbcNoPublicConstructor(ABC, NoPublicConstructor):
     pass
 
 
-from unapi.attachment import AttachmentType, Attachment
+from src.attachment import AttachmentType, Attachment

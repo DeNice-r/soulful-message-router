@@ -5,10 +5,10 @@ from typing import List
 
 from starlette.requests import Request
 
-from unapi.attachment import Attachment, AttachmentType
-from unapi.event import Event
-from unapi.platforms.viber import api
-from unapi.platforms.viber.model import Model
+from src.attachment import Attachment, AttachmentType
+from src.event import Event
+from src.platforms.viber import api
+from src.platforms.viber.model import Model
 
 from os import environ, path
 

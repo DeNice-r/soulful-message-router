@@ -28,4 +28,4 @@ class Attachment(BaseModel):
         return download_attachment(self, save)
 
 
-from unapi.util import download_attachment
+from src.util import download_attachment

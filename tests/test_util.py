@@ -4,8 +4,8 @@ import uuid
 from pathlib import Path
 import pytest
 import requests
-from unapi.util import generate_file_path, save_file, download_file, download_attachment
-from unapi.attachment import Attachment, AttachmentType
+from src.util import generate_file_path, save_file, download_file, download_attachment
+from src.attachment import Attachment, AttachmentType
 from os import environ
 from dotenv import load_dotenv
 
@@ -148,7 +148,7 @@ class TestDownloadAttachment:
     def test_download_success_save_true(self, mocker, attachment, dt_str, uuid_str, mock_datetime, tmp_path):
         file_path = Path(tmp_path) / attachment.type_.value / f'{dt_str}_{uuid_str}.{attachment.extension}'
         mocker.patch(
-            'unapi.util.generate_file_path',
+            'src.util.generate_file_path',
             return_value=file_path
         )
         content = b'test content'
