@@ -22,6 +22,10 @@ class FacebookEvent(Event):
     original: Model  # this is needed to tell pydantic that original is a Model
 
     @property
+    def platform_name(self) -> str:
+        return 'viber'
+
+    @property
     def chat_id(self) -> int | str:
         return self.original.entry[0].messaging[0].sender.id
 
