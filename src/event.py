@@ -23,6 +23,14 @@ class Event(metaclass=AbcNoPublicConstructor):
 
         self.original = original
 
+    @property
+    def unique_id(self) -> str:
+        """
+        A method that returns a unique id for an event
+        :return: a unique id
+        """
+        return f'{self.platform_name}_{self.chat_id}'
+
     @classmethod
     def create(cls, data: BaseModel) -> "Event":
         """
