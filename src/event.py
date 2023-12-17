@@ -36,6 +36,15 @@ class Event(metaclass=AbcNoPublicConstructor):
 
     @property
     @abstractmethod
+    def platform_name(self) -> str:
+        """
+        A property that returns the name of the platform
+        :return: platform name
+        """
+        raise NotImplementedError("platform_name is a subclass-implemented property")
+
+    @property
+    @abstractmethod
     def chat_id(self) -> int | str:
         """
         A property that returns a chat id

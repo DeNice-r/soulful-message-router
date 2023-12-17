@@ -17,6 +17,10 @@ class TelegramEvent(Event):
     original: Model  # this is needed to tell pydantic that original is a Model
 
     @property
+    def platform_name(self) -> str:
+        return 'telegram'
+
+    @property
     def chat_id(self) -> int | str:
         return self.original.message.chat.id
 
