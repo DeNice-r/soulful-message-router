@@ -12,7 +12,7 @@ from os import environ
 def send_message(unique_chat_id: str, text: str):
     """
     A function that sends a message to a user
-    :param chat_id: a chat id
+    :param unique_chat_id: a chat id prefixed with a platform name (e.g. 'viber_1234567890')
     :param text: a text to send
     :return: None
     """
