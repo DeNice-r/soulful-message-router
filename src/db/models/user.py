@@ -1,19 +1,24 @@
-from sqlalchemy import Column, DateTime, String, Integer
+from sqlalchemy import Column, DateTime, String, Integer, Boolean
 from sqlalchemy.orm import relationship, backref
+from datetime import datetime as dt
 
 from src.db.engine import BaseModel
 
 
 class User(BaseModel):
-    __tablename__ = 'user'
+    __tablename__ = 'User'
 
-    id = Column(String, primary_key=True, not_null=True)
+    id = Column(String, primary_key=True, nullable=False)
     name = Column(String)
     email = Column(String, unique=True)
     email_verified = Column('emailVerified', DateTime)
     image = Column(String)
-    role = Column(String, nullable=False)
+    isOnline = Column(Boolean, default=False)
+    latestStatusConfirmationAt = Column(DateTime, default=dt.now)
 
+    role = Column(String, nullable=False)
+#  isOnline                   Boolean        @default(false)
+    #latestStatusConfirmationAt DateTime       @default(now())
     # Unused on backend
     # posts = relationship('Post', backref=backref('user', lazy='select'))
     # accounts = relationship('Account', backref=backref('user', lazy='select'))
