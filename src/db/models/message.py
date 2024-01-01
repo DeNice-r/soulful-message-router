@@ -1,15 +1,16 @@
-from sqlalchemy import Column, DateTime, String, Integer, Boolean
-
+from sqlalchemy import Column, DateTime, String, Integer, Boolean, ForeignKey
+from datetime import datetime as dt
 from src.db.engine import BaseModel
 
 
 class Message(BaseModel):
-    __tablename__ = 'chat'
+    __tablename__ = 'Message'
 
     id = Column(Integer, primary_key=True, nullable=False)
-    created_at = Column('createdAt', DateTime, nullable=False)
+    created_at = Column('createdAt', DateTime, default=dt.now)
     text = Column(String, nullable=False)
     is_from_user = Column('isFromUser', Boolean, nullable=False)
+    chat_id = Column('chatId', ForeignKey('Chat.id'), nullable=False)
 
 # Reference model from Prisma
 # model Message {

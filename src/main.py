@@ -1,10 +1,19 @@
+import json
 import logging
-from typing import List
+from typing import List, Dict
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+from sqlalchemy import select, and_
 
-from src.event import EventFactory
+from src.api import send_message
+from src.db.engine import Session
+from src.db.models.chat import Chat
+from src.db.models.message import Message
+from src.db.models.user import User
+from src.event import EventFactory, Event
 from src import platforms
+
+from random import choice as random_choice
 
 from src.webhooks import init as webhooks_init
 
@@ -15,8 +24,8 @@ app = FastAPI()
 
 webhook_path = environ["WEBHOOK_PATH"]
 
-ws_clients: List[WebSocket] = []
-last_event = None
+ws_clients: Dict[str, WebSocket] = {}
+last_event: Event | None
 
 
 @app.get("/")
@@ -32,7 +41,6 @@ async def webhook_init():
     except Exception as e:
         return HTTPException(500, f"Error: {e}")
 
-
 @app.post(webhook_path)
 async def webhook_callback(request: Request):
     event = None
@@ -41,13 +49,57 @@ async def webhook_callback(request: Request):
     except ValueError as e:
         logging.warning(f"Error: {e}")
         return HTTPException(status_code=400, detail=str(e))
+    # return 'OK'
+    user_id = event.unique_id
+    with Session() as session:
+        user: User = session.get(User, user_id)
+        if not user:
+            user = User(
+                id=user_id,
+                role='anonymous',
+            )
+            session.add(user)
+            session.commit()
 
-    global last_event
-    last_event = event
-    # event.send_message(event.text)
+        # chat = session.query(Chat, userId=user_id)
+        chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
+        if not chat:
+            personnel: List[User] = session.execute(select(User).where(and_(User.role == 'operator', User.isOnline==True))).scalars().all()
 
-    for client in ws_clients:
-        await client.send_text(event.text)
+            if not personnel:
+                event.send_message("Sorry, no personnel is online right now")
+                logging.warning(f'Bounced a user with id {user_id}')
+                return "OK"
+
+            chat = Chat(
+                user_id=user_id,
+                personnel_id=random_choice(personnel).id,  # TODO: Some complicated logic to choose the personnel
+            )
+            session.add(chat)
+            session.commit()
+
+        message = Message(
+            text=event.text,
+            is_from_user=True,
+            chat_id=chat.id,
+        )
+        session.add(message)
+        session.commit()
+
+        await ws_clients[chat.personnel_id].send_text(json.dumps({
+            'id': message.id,
+            'text': message.text,
+            'createdAt': message.created_at.timestamp(),
+            'chatId': chat.id,
+            'isFromUser': message.is_from_user,
+        }))
+
+    # global last_event
+    # last_event = event
+    # # event.send_message(event.text)
+    #
+    # for client in ws_clients:
+    #     await client.send_text(event.text)
 
     return "OK"
 
@@ -65,16 +117,32 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
     raise HTTPException(status_code=403, detail="Invalid key")
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+@app.websocket("/ws/{personnel_id}")
+async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
     await websocket.accept()
-    ws_clients.append(websocket)
+    ws_clients[personnel_id] = websocket
 
-    try:
-        while True:
-            data = await websocket.receive_text()
+    # try:
+    while True:
+        data = json.loads(await websocket.receive_text())
+        print(data)
+        with Session() as session:
+            message = Message(
+                text=data['text'],
+                chat_id=data['chatId'],
+                is_from_user=data['isFromUser'],
+            )
+            session.add(message)
+            session.commit()
 
-            if last_event:
-                last_event.send_message(data)
-    except Exception as e:
-        ws_clients.remove(websocket)
+            send_message(data['userId'], data['text'])
+
+            await ws_clients[personnel_id].send_json({
+                'id': message.id,
+                'text': message.text,
+                'createdAt': message.created_at.timestamp(),
+                'chatId': message.chat_id,
+                'isFromUser': message.is_from_user,
+            })
+    # except Exception as e:
+    #     del ws_clients[personnel_id]

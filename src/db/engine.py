@@ -10,12 +10,12 @@ load_dotenv()
 
 
 def create_engine():
-    return alch_create_engine(os.environ['DATABASE_URL'],  # echo=True,
+    return alch_create_engine(os.environ['DB_CONNECTION_STRING'],  # echo=True,
                           future=True)
 
 
 engine = create_engine()
-session = sessionmaker(engine)
+Session = sessionmaker(engine)
 if not database_exists(engine.url):
     create_database(engine.url)
 BaseModel = declarative_base()

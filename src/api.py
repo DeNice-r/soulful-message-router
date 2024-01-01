@@ -28,4 +28,5 @@ def send_message(unique_chat_id: str, text: str):
         case _:
             raise ValueError('Unknown platform')
 
+    print(f"Sending message to {unique_chat_id} via {platform}")
     sm(chat_id, text)
