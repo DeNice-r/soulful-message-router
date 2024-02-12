@@ -23,7 +23,7 @@ class FacebookEvent(Event):
 
     @property
     def platform_name(self) -> str:
-        return 'viber'
+        return 'facebook'
 
     @property
     def chat_id(self) -> int | str:
