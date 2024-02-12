@@ -49,7 +49,7 @@ async def webhook_callback(request: Request):
     except ValueError as e:
         logging.warning(f"Error: {e}")
         return HTTPException(status_code=400, detail=str(e))
-    # return 'OK'
+
     user_id = event.unique_id
     with Session() as session:
         user: User = session.get(User, user_id)
@@ -61,7 +61,6 @@ async def webhook_callback(request: Request):
             session.add(user)
             session.commit()
 
-        # chat = session.query(Chat, userId=user_id)
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
             personnel: List[User] = session.execute(select(User).where(and_(User.role == 'operator', User.isOnline==True))).scalars().all()
@@ -94,12 +93,6 @@ async def webhook_callback(request: Request):
             'isFromUser': message.is_from_user,
         }))
 
-    # global last_event
-    # last_event = event
-    # # event.send_message(event.text)
-    #
-    # for client in ws_clients:
-    #     await client.send_text(event.text)
 
     return "OK"
 
@@ -144,5 +137,3 @@ async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
                 'chatId': message.chat_id,
                 'isFromUser': message.is_from_user,
             })
-    # except Exception as e:
-    #     del ws_clients[personnel_id]
