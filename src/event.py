@@ -150,16 +150,19 @@ class Event(metaclass=AbcNoPublicConstructor):
 
 class EventFactory:
     @staticmethod
-    async def create_event(request: Request) -> Event:
+    async def create_event(request: Request, is_message_required=True) -> Event:
         """
         A static method that decides exact class for an event and creates it from json
         :param request: an incoming request object
-        :return: an event object
+        :param is_message_required: if True, raises ValueError if message is not present in the request, even if event is valid
+        :return an event object
         """
         for messenger in Event.__subclasses__():
             evt = await messenger.create_if_valid(request)
             if evt is None:
                 continue
+            if is_message_required and not evt.text:
+                raise ValueError("Message is required")
             return evt
 
         raise ValueError("Unknown request origin")
