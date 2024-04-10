@@ -16,7 +16,7 @@ class User(BaseModel):
     isOnline = Column(Boolean, default=False)
     latestStatusConfirmationAt = Column(DateTime, default=dt.now)
 
-    role = Column(String, nullable=False)
+    # role = Column(String, nullable=False)
 #  isOnline                   Boolean        @default(false)
     #latestStatusConfirmationAt DateTime       @default(now())
     # Unused on backend

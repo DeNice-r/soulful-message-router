@@ -3,13 +3,14 @@ import logging
 from typing import List, Dict
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
-from sqlalchemy import select, and_
+from sqlalchemy import select
 
 from src.api import send_message
 from src.db.engine import Session
 from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
+from src.db.queries import getPersonnelQuery
 from src.event import EventFactory, Event
 from src import platforms
 
@@ -24,8 +25,15 @@ app = FastAPI()
 
 webhook_path = environ["WEBHOOK_PATH"]
 
+# class MockWebSocket:
+#     async def send_json(self, data):
+#         print(data)
+#
+# ws_clients: Dict[str, WebSocket] = {
+#     'clulqsgkw00048gontjpleai8': MockWebSocket(),
+# }
+
 ws_clients: Dict[str, WebSocket] = {}
-last_event: Event | None
 
 
 @app.get("/")
@@ -43,7 +51,6 @@ async def webhook_init():
 
 @app.post(webhook_path)
 async def webhook_callback(request: Request):
-    event = None
     try:
         event = await EventFactory.create_event(request)
     except ValueError as e:
@@ -56,23 +63,22 @@ async def webhook_callback(request: Request):
         if not user:
             user = User(
                 id=user_id,
-                role='anonymous',
             )
             session.add(user)
             session.commit()
 
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
-            personnel: List[User] = session.execute(select(User).where(and_(User.role == 'operator', User.isOnline==True))).scalars().all()
+            personnel: List[User] = session.execute(getPersonnelQuery, ({'title': 'chat', 'availablePersonnelIds': list(ws_clients.keys())},)).scalars().all()
 
             if not personnel:
-                event.send_message("Sorry, no personnel is online right now")
+                event.send_message("Sorry, no personnel is online right now. We'll get back to you as soon as possible.")
                 logging.warning(f'Bounced a user with id {user_id}')
                 return "OK"
 
             chat = Chat(
                 user_id=user_id,
-                personnel_id=random_choice(personnel).id,  # TODO: Some complicated logic to choose the personnel
+                personnel_id=random_choice(personnel),  # TODO: Some complicated logic to choose the personnel
             )
             session.add(chat)
             session.commit()
@@ -85,13 +91,18 @@ async def webhook_callback(request: Request):
         session.add(message)
         session.commit()
 
-        await ws_clients[chat.personnel_id].send_text(json.dumps({
-            'id': message.id,
-            'text': message.text,
-            'createdAt': message.created_at.timestamp(),
-            'chatId': chat.id,
-            'isFromUser': message.is_from_user,
-        }))
+        try:
+            await ws_clients[chat.personnel_id].send_json({
+                'id': message.id,
+                'text': message.text,
+                'createdAt': message.created_at.timestamp(),
+                'chatId': chat.id,
+                'isFromUser': message.is_from_user,
+            })
+        except KeyError:
+            event.send_message("Uh-oh! Looks like your operator temporarily lost connection. They're on their way back.")
+            logging.warning(f'Bounced a user with id {user_id}')
+            return "OK"
 
 
     return "OK"
