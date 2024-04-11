@@ -10,7 +10,7 @@ from src.db.engine import Session
 from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
-from src.db.queries import getPersonnelQuery
+from src.db.queries import getPersonnel
 from src.event import EventFactory, Event
 from src import platforms
 
@@ -69,7 +69,7 @@ async def webhook_callback(request: Request):
 
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
-            personnel: List[User] = session.execute(getPersonnelQuery, ({'title': 'chat', 'availablePersonnelIds': list(ws_clients.keys())},)).scalars().all()
+            personnel: List[User] = getPersonnel(session, list(*ws_clients.keys()))
 
             if not personnel:
                 event.send_message("Sorry, no personnel is online right now. We'll get back to you as soon as possible.")

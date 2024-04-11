@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 getPersonnelQuery = text("""
     SELECT u.*
@@ -10,5 +11,8 @@ getPersonnelQuery = text("""
     LEFT JOIN "_PermissionToRole" pr ON r.id = pr."B"
     LEFT JOIN "Permission" p2 ON pr."A" = p2.id
     WHERE (p.title = :title OR p2.title = :title)
-    AND u.id IN (:availablePersonnelIds)
+    AND u.id IN (:available_personnel_ids)
 """)
+
+def getPersonnel(session: Session, available_personnel_ids: list[str], role_title: str = 'chat'):
+    return session.execute(getPersonnelQuery, {'title': role_title, 'available_personnel_ids': available_personnel_ids}).scalars().all()
