@@ -1,9 +1,12 @@
 import json
 import logging
-from typing import List, Dict
+from os import environ
+from typing import List
+from random import choice as random_choice
 
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 from sqlalchemy import select
+from starlette.websockets import WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 
 from src.api import send_message
 from src.db.engine import Session
@@ -11,29 +14,21 @@ from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
 from src.db.queries import getPersonnel
-from src.event import EventFactory, Event
+from src.event import EventFactory
+# Warning: This import is important, even though it is not used
 from src import platforms
 
-from random import choice as random_choice
-
 from src.webhooks import init as webhooks_init
+from src.websocket_manager import WebSocketManager
 
-from os import environ
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 app = FastAPI()
 
 webhook_path = environ["WEBHOOK_PATH"]
 
-# class MockWebSocket:
-#     async def send_json(self, data):
-#         print(data)
-#
-# ws_clients: Dict[str, WebSocket] = {
-#     'clulqsgkw00048gontjpleai8': MockWebSocket(),
-# }
 
-ws_clients: Dict[str, WebSocket] = {}
+ws_manager = WebSocketManager()
 
 
 @app.get("/")
@@ -69,12 +64,14 @@ async def webhook_callback(request: Request):
 
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
-            personnel: List[User] = getPersonnel(session, list(*ws_clients.keys()))
+            personnel_ids = ws_manager.get_client_ids()
 
-            if not personnel:
+            if not personnel_ids:
                 event.send_message("Sorry, no personnel is online right now. We'll get back to you as soon as possible.")
                 logging.warning(f'Bounced a user with id {user_id}')
                 return "OK"
+
+            personnel: List[User] = getPersonnel(session, personnel_ids)
 
             chat = Chat(
                 user_id=user_id,
@@ -92,18 +89,18 @@ async def webhook_callback(request: Request):
         session.commit()
 
         try:
-            await ws_clients[chat.personnel_id].send_json({
+            await ws_manager.send_json(chat.personnel_id, {
                 'id': message.id,
                 'text': message.text,
                 'createdAt': message.created_at.timestamp(),
                 'chatId': chat.id,
                 'isFromUser': message.is_from_user,
             })
-        except KeyError:
+        except Exception as e:
+            if e == WebSocketDisconnect:
+                await ws_manager.disconnect(chat.personnel_id)
             event.send_message("Uh-oh! Looks like your operator temporarily lost connection. They're on their way back.")
             logging.warning(f'Bounced a user with id {user_id}')
-            return "OK"
-
 
     return "OK"
 
@@ -123,13 +120,11 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
 
 @app.websocket("/ws/{personnel_id}")
 async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
-    await websocket.accept()
-    ws_clients[personnel_id] = websocket
+    await ws_manager.connect(personnel_id, websocket)
 
-    # try:
     while True:
-        data = json.loads(await websocket.receive_text())
-        print(data)
+        data = json.loads(await ws_manager.receive_text(personnel_id))
+
         with Session() as session:
             message = Message(
                 text=data['text'],
@@ -141,7 +136,7 @@ async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
 
             send_message(data['userId'], data['text'])
 
-            await ws_clients[personnel_id].send_json({
+            await ws_manager.send_json(personnel_id, {
                 'id': message.id,
                 'text': message.text,
                 'createdAt': message.created_at.timestamp(),
