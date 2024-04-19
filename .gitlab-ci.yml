@@ -11,6 +11,8 @@ deploy:
     only:
       - main
     script:
+        - sudo su
+
         - mkdir $SSL_DIR
 
         - touch "$SSL_CERTFILE"
