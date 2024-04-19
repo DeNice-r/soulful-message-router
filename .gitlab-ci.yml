@@ -2,24 +2,50 @@ stages:
     - deploy
 
 variables:
-    SSL_DIR: ./ssl
-    SSL_KEYFILE: $SSL_DIR/key.pem
-    SSL_CERTFILE: $SSL_DIR/cert.pem
+    SSL_KEYFILE: ./ssl/key.pem
+    SSL_CERTFILE: ./ssl/cert.pem
 
 deploy:
     stage: deploy
     only:
       - main
     script:
-        - mkdir $SSL_DIR
-
         - touch "$SSL_CERTFILE"
         - printf "%s" "$SSL_CERT" > "$SSL_CERTFILE"
 
         - touch "$SSL_KEYFILE"
         - printf "%s" "$SSL_KEY" > "$SSL_KEYFILE"
 
-        - sudo docker stop message-router && sudo docker rm message-router
+        - docker stop message-router && docker rm message-router
 
-        - sudo docker buildx build -t message-router .
-        - sudo docker run -d --restart=unless-stopped --network nginx_bridge --ip 172.23.0.69 -p "1488:8080" --name message-router message-router
+        - docker buildx build -t message-router .
+
+        - sudo docker run -d \
+            --restart=unless-stopped \
+            --network nginx_bridge \
+            --ip 172.23.0.69 \
+            -p "1488:8080" \
+            --name message-router \
+            -e "PORT=$PORT" \
+            -e "SSL_KEYFILE=$SSL_KEYFILE" \
+            -e "SSL_CERTFILE=$SSL_CERTFILE" \
+            -e "API_URL=$API_URL" \
+            -e "WEBHOOK_PATH=$WEBHOOK_PATH" \
+            \
+            -e "TELEGRAM_TOKEN=$TELEGRAM_TOKEN" \
+            -e "TELEGRAM_VERIFICATION_TOKEN=$TELEGRAM_VERIFICATION_TOKEN" \
+            \
+            -e "VIBER_TOKEN=$VIBER_TOKEN" \
+            -e "VIBER_MIN_API_VERSION=$VIBER_MIN_API_VERSION" \
+            \
+            -e "FACEBOOK_VERIFICATION_TOKEN=$FACEBOOK_VERIFICATION_TOKEN" \
+            -e "FACEBOOK_APP_SECRET=$FACEBOOK_APP_SECRET" \
+            -e "FACEBOOK_PAGE_ID=$FACEBOOK_PAGE_ID" \
+            -e "FACEBOOK_PAGE_TOKEN=$FACEBOOK_PAGE_TOKEN" \
+            -e "FACEBOOK_API_VERSION=$FACEBOOK_API_VERSION" \
+            \
+            -e "LOCAL_STORAGE_PATH=$LOCAL_STORAGE_PATH" \
+            \
+            -e "DB_CONNECTION_STRING=$DB_CONNECTION_STRING" \
+            \
+            message-router
