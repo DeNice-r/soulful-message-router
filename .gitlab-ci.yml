@@ -1,0 +1,20 @@
+stages:
+    - deploy
+
+variables:
+    SSL_KEYFILE: ./ssl/key.pem
+    SSL_CERTFILE: ./ssl/cert.pem
+
+deploy:
+    stage: deploy
+    script:
+        - touch "$SSL_CERTFILE"
+        - printf "%s" "$SSL_CERT" > "$SSL_CERTFILE"
+
+        - touch "$SSL_KEYFILE"
+        - printf "%s" "$SSL_KEY" > "$SSL_KEYFILE"
+
+        - docker stop message-router && docker rm message-router
+
+        - docker buildx build -t message-router .
+        - docker run -d --restart=unless-stopped --network nginx_bridge --ip 172.23.0.69 -p "443:8080" --name message-router message-router
