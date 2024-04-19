@@ -14,7 +14,7 @@ def run () -> None:
         "host": "0.0.0.0",
         "port": int(environ["PORT"]),
         "log_level": "info",
-        "reload": True
+        "reload": environ.get("STAGE") != "prod",
     }
 
     ssl_keyfile = environ.get("SSL_KEYFILE")
