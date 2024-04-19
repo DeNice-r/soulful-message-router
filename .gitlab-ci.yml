@@ -7,6 +7,8 @@ variables:
 
 deploy:
     stage: deploy
+    only:
+      - main
     script:
         - touch "$SSL_CERTFILE"
         - printf "%s" "$SSL_CERT" > "$SSL_CERTFILE"
