@@ -2,14 +2,17 @@ stages:
     - deploy
 
 variables:
-    SSL_KEYFILE: ./ssl/key.pem
-    SSL_CERTFILE: ./ssl/cert.pem
+    SSL_DIR: ./ssl
+    SSL_KEYFILE: $SSL_DIR/key.pem
+    SSL_CERTFILE: $SSL_DIR/cert.pem
 
 deploy:
     stage: deploy
     only:
       - main
     script:
+        - mkdir $SSL_DIR
+
         - touch "$SSL_CERTFILE"
         - printf "%s" "$SSL_CERT" > "$SSL_CERTFILE"
 
