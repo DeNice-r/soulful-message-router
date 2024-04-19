@@ -22,4 +22,4 @@ deploy:
         - sudo docker stop message-router && sudo docker rm message-router
 
         - sudo docker buildx build -t message-router .
-        - sudo docker run -d --restart=unless-stopped --network nginx_bridge --ip 172.23.0.69 -p "443:8080" --name message-router message-router
+        - sudo docker run -d --restart=unless-stopped --network nginx_bridge --ip 172.23.0.69 -p "1488:8080" --name message-router message-router
