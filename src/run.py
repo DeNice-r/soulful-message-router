@@ -5,7 +5,10 @@ import ssl
 from os import environ
 
 def run () -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.ERROR if environ.get("STAGE") == "prod" else logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     load_dotenv()
 
@@ -13,7 +16,7 @@ def run () -> None:
         "app": "src.main:app",
         "host": "0.0.0.0",
         "port": int(environ["PORT"]),
-        "log_level": "info",
+        "log_level": "error" if environ.get("STAGE") == "prod" else "info",
         "reload": environ.get("STAGE") != "prod",
     }
 
