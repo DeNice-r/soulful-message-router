@@ -122,7 +122,7 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
 async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
     await ws_manager.connect(personnel_id, websocket)
 
-    while True:
+    while ws_manager.get_client(personnel_id):
         data = json.loads(await ws_manager.receive_text(personnel_id))
 
         with Session() as session:
