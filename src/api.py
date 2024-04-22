@@ -8,6 +8,16 @@ from abc import abstractmethod
 from fastapi import Request
 from os import environ
 
+from src.platforms.viber.api import send_message as sm1
+from src.platforms.facebook.api import send_message as sm2
+from src.platforms.telegram.api import send_message as sm3
+
+platform_sm = {
+    'viber': sm1,
+    'facebook': sm2,
+    'telegram': sm3
+}
+
 
 def send_message(unique_chat_id: str, text: str):
     """
@@ -18,15 +28,8 @@ def send_message(unique_chat_id: str, text: str):
     """
     platform, chat_id = unique_chat_id.split('_')
 
-    match platform:
-        case 'viber':
-            from src.platforms.viber.api import send_message as sm
-        case 'facebook':
-            from src.platforms.facebook.api import send_message as sm
-        case 'telegram':
-            from src.platforms.telegram.api import send_message as sm
-        case _:
-            raise ValueError('Unknown platform')
+    if platform not in platform_sm:
+        raise ValueError(f"Platform {platform} is not supported")
 
     print(f"Sending message to {unique_chat_id} via {platform}")
-    sm(chat_id, text)
+    platform_sm[platform](chat_id, text)
