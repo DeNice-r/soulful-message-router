@@ -15,11 +15,12 @@ from src.db.models.message import Message
 from src.db.models.user import User
 from src.db.queries import getPersonnel
 from src.event import EventFactory
-# Warning: This import is important, even though it is not used
-from src import platforms
-
 from src.webhooks import init as webhooks_init
 from src.websocket_manager import WebSocketManager
+from src.util import no_personnel_error
+
+# Warning: This import is important, even though it is not used
+from src import platforms
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -67,11 +68,12 @@ async def webhook_callback(request: Request):
             personnel_ids = ws_manager.get_client_ids()
 
             if not personnel_ids:
-                event.send_message("Sorry, no personnel is online right now. We'll get back to you as soon as possible.")
-                logging.warning(f'Bounced a user with id {user_id}')
-                return "OK"
+                return no_personnel_error(event, user_id)
 
             personnel: List[User] = getPersonnel(session, personnel_ids)
+
+            if not personnel:
+                return no_personnel_error(event, user_id)
 
             chat = Chat(
                 user_id=user_id,
@@ -123,7 +125,12 @@ async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
     await ws_manager.connect(personnel_id, websocket)
 
     while ws_manager.get_client(personnel_id):
-        data = json.loads(await ws_manager.receive_text(personnel_id))
+        text = await ws_manager.receive_text(personnel_id)
+
+        if not text:
+            continue
+
+        data = json.loads(text)
 
         with Session() as session:
             message = Message(

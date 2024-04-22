@@ -32,13 +32,14 @@ class WebSocketManager:
         self.clients[user_id] = websocket
 
     def get_client(self, user_id: str):
-        return self.clients[user_id]
+        return self.clients.get(user_id)
 
     def get_clients(self):
         return self.clients
 
     async def disconnect(self, user_id: str):
-        await self.clients[user_id].close()
+        if self.clients[user_id].client_state == WebSocketState.CONNECTED:
+            await self.clients[user_id].close()
         del self.clients[user_id]
 
     async def disconnect_all(self):
