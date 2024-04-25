@@ -5,6 +5,7 @@ from typing import List
 from random import choice as random_choice
 
 from sqlalchemy import select
+from sqlalchemy import text
 from starlette.websockets import WebSocketDisconnect
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 
@@ -120,22 +121,23 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
     raise HTTPException(status_code=403, detail="Invalid key")
 
 
-@app.websocket("/ws/{personnel_id}")
-async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
+@app.websocket("/ws/{personnel_token}")
+async def websocket_endpoint(websocket: WebSocket, personnel_token: str):
     with Session() as session:
-        user: User = session.get(User, personnel_id)
-        if not user:
-            return HTTPException(status_code=401, detail="Unauthorized")
+        personnel_id = session.execute(text("SELECT user_id FROM \"Session\" WHERE session_token = :token"), {'token': personnel_token}).scalars().one_or_none()
+
+    if not personnel_id:
+        return HTTPException(status_code=401, detail="Unauthorized")
 
     await ws_manager.connect(personnel_id, websocket)
 
     while ws_manager.get_client(personnel_id):
-        text = await ws_manager.receive_text(personnel_id)
+        data = await ws_manager.receive_text(personnel_id)
 
-        if not text:
+        if not data:
             continue
 
-        data = json.loads(text)
+        data = json.loads(data)
 
         with Session() as session:
             message = Message(
