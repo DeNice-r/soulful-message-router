@@ -122,6 +122,11 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
 
 @app.websocket("/ws/{personnel_id}")
 async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
+    with Session() as session:
+        user: User = session.get(User, personnel_id)
+        if not user:
+            return HTTPException(status_code=401, detail="Unauthorized")
+
     await ws_manager.connect(personnel_id, websocket)
 
     while ws_manager.get_client(personnel_id):
