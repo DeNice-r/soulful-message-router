@@ -38,6 +38,8 @@ class WebSocketManager:
         return self.clients
 
     async def disconnect(self, user_id: str):
+        if user_id not in self.clients:
+            return
         if self.clients[user_id].client_state == WebSocketState.CONNECTED:
             await self.clients[user_id].close()
         del self.clients[user_id]
