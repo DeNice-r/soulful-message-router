@@ -14,7 +14,7 @@ from src.db.engine import Session
 from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
-from src.db.queries import getPersonnel
+from src.db.queries import get_personnel
 from src.event import EventFactory
 from src.webhooks import init as webhooks_init
 from src.websocket_manager import WebSocketManager
@@ -71,7 +71,7 @@ async def webhook_callback(request: Request):
             if not personnel_ids:
                 return no_personnel_error(event, user_id)
 
-            personnel: List[User] = getPersonnel(session, personnel_ids)
+            personnel = get_personnel(session, personnel_ids)
 
             if not personnel:
                 return no_personnel_error(event, user_id)
@@ -126,7 +126,9 @@ async def websocket_endpoint(websocket: WebSocket, personnel_token: str):
     with Session() as session:
         personnel_id = session.execute(text("SELECT user_id FROM \"Session\" WHERE session_token = :token"), {'token': personnel_token}).scalars().one_or_none()
 
-    if not personnel_id:
+        user = get_personnel(session, [personnel_id])
+
+    if not personnel_id or not user:
         return HTTPException(status_code=401, detail="Unauthorized")
 
     await ws_manager.connect(personnel_id, websocket)
