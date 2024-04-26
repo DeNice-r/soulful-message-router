@@ -11,7 +11,8 @@ load_dotenv()
 local_storage_path = os.environ["LOCAL_STORAGE_PATH"]
 
 def no_personnel_error(event, user_id):
-    event.send_message("Sorry, no personnel is available right now. We'll get back to you as soon as possible.")
+    # event.send_message("Sorry, no personnel is available right now. We'll get back to you as soon as possible.")
+    event.send_message("Пробачте, зараз немає операторів онлайн 🥲. Ми зв'яжемося з вами найближчим часом.")
     logging.warning(f'Bounced a user with id {user_id}')
     return "OK"
 

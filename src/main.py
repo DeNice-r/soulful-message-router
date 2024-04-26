@@ -102,7 +102,8 @@ async def webhook_callback(request: Request):
         except Exception as e:
             if e == WebSocketDisconnect:
                 await ws_manager.disconnect(chat.personnel_id)
-            event.send_message("Uh-oh! Looks like your operator temporarily lost connection. They're on their way back.")
+            # event.send_message("Uh-oh! Looks like your operator temporarily lost connection. They're on their way back.")
+            event.send_message("Ой-йой! Здається, ваш оператор тимчасово втратив зв'язок. Він повернеться найближчим часом.")
             logging.warning(f'Bounced a user with id {user_id}')
 
     return "OK"
