@@ -1,7 +1,6 @@
 import json
 import logging
 from os import environ
-from typing import List
 from random import choice as random_choice
 
 from sqlalchemy import select
@@ -54,7 +53,8 @@ async def webhook_callback(request: Request):
         logging.warning(f"Error: {e}")
         return HTTPException(status_code=400, detail=str(e))
 
-    user_id = event.unique_id
+    personnel_ids = ws_manager.get_client_ids()
+    user_id = event.user_unique_id
     with Session() as session:
         user: User = session.get(User, user_id)
         if not user:
@@ -66,19 +66,15 @@ async def webhook_callback(request: Request):
 
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
-            personnel_ids = ws_manager.get_client_ids()
+            # The following could be used to continuously verify user access to chat, probably unnecessary
+            # personnel = get_personnel(session, personnel_ids)
 
             if not personnel_ids:
-                return no_personnel_error(event, user_id)
-
-            personnel = get_personnel(session, personnel_ids)
-
-            if not personnel:
-                return no_personnel_error(event, user_id)
+                no_personnel_error(event, user_id)
 
             chat = Chat(
                 user_id=user_id,
-                personnel_id=random_choice(personnel),  # TODO: Some complicated logic to choose the personnel
+                personnel_id=random_choice(personnel_ids) if personnel_ids else None,  # TODO: Some complicated logic to choose the personnel
             )
             session.add(chat)
             session.commit()
@@ -91,6 +87,11 @@ async def webhook_callback(request: Request):
         session.add(message)
         session.commit()
 
+        if chat.personnel_id not in personnel_ids:
+            if chat.personnel_id:
+                no_personnel_error(event, user_id, is_assigned=True)
+            return
+
         try:
             await ws_manager.send_json(chat.personnel_id, {
                 'id': message.id,
@@ -102,9 +103,8 @@ async def webhook_callback(request: Request):
         except Exception as e:
             if e == WebSocketDisconnect:
                 await ws_manager.disconnect(chat.personnel_id)
-            # event.send_message("Uh-oh! Looks like your operator temporarily lost connection. They're on their way back.")
-            event.send_message("Ой-йой! Здається, ваш оператор тимчасово втратив зв'язок. Він повернеться найближчим часом.")
-            logging.warning(f'Bounced a user with id {user_id}')
+
+            logging.error(f"Unable to reach an operator who was previously connected: {e}")
 
     return "OK"
 
