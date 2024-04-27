@@ -79,6 +79,8 @@ async def webhook_callback(request: Request):
             session.add(chat)
             session.commit()
 
+            event.send_message("Привіт! Як ми можемо вам допомогти? Оператор незабаром відповість вам.")
+
         message = Message(
             text=event.text,
             is_from_user=True,
