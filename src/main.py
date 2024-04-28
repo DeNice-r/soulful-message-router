@@ -64,6 +64,10 @@ async def webhook_callback(request: Request):
             session.add(user)
             session.commit()
 
+        if user.suspended:
+            event.send_message("Ви були заблоковані. Якщо вважаєте, що це помилка - зверніться на пошту unban@soulful.pp.ua для розблокування.")
+            return
+
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
             # The following could be used to continuously verify user access to chat, probably unnecessary

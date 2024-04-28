@@ -15,6 +15,7 @@ class User(BaseModel):
     image = Column(String)
     isOnline = Column(Boolean, default=False)
     latestStatusConfirmationAt = Column(DateTime, default=dt.now)
+    suspended = Column(Boolean, default=False)
 
     # role = Column(String, nullable=False)
 #  isOnline                   Boolean        @default(false)
