@@ -1,10 +1,10 @@
 import json
 import logging
 from os import environ
-from typing import List
 from random import choice as random_choice
 
 from sqlalchemy import select
+from sqlalchemy import text
 from starlette.websockets import WebSocketDisconnect
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
 
@@ -13,7 +13,7 @@ from src.db.engine import Session
 from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
-from src.db.queries import getPersonnel
+from src.db.queries import get_personnel
 from src.event import EventFactory
 from src.webhooks import init as webhooks_init
 from src.websocket_manager import WebSocketManager
@@ -53,7 +53,8 @@ async def webhook_callback(request: Request):
         logging.warning(f"Error: {e}")
         return HTTPException(status_code=400, detail=str(e))
 
-    user_id = event.unique_id
+    personnel_ids = ws_manager.get_client_ids()
+    user_id = event.user_unique_id
     with Session() as session:
         user: User = session.get(User, user_id)
         if not user:
@@ -63,24 +64,26 @@ async def webhook_callback(request: Request):
             session.add(user)
             session.commit()
 
+        if user.suspended:
+            event.send_message("Ви були заблоковані. Якщо вважаєте, що це помилка - зверніться на пошту unban@soulful.pp.ua для розблокування.")
+            return
+
         chat = session.execute(select(Chat).where(Chat.user_id == user_id)).scalar_one_or_none()
         if not chat:
-            personnel_ids = ws_manager.get_client_ids()
+            # The following could be used to continuously verify user access to chat, probably unnecessary
+            # personnel = get_personnel(session, personnel_ids)
 
             if not personnel_ids:
-                return no_personnel_error(event, user_id)
-
-            personnel: List[User] = getPersonnel(session, personnel_ids)
-
-            if not personnel:
-                return no_personnel_error(event, user_id)
+                no_personnel_error(event, user_id)
 
             chat = Chat(
                 user_id=user_id,
-                personnel_id=random_choice(personnel),  # TODO: Some complicated logic to choose the personnel
+                personnel_id=random_choice(personnel_ids) if personnel_ids else None,  # TODO: Some complicated logic to choose the personnel
             )
             session.add(chat)
             session.commit()
+
+            event.send_message("Привіт! Як ми можемо вам допомогти? Оператор незабаром відповість вам.")
 
         message = Message(
             text=event.text,
@@ -89,6 +92,11 @@ async def webhook_callback(request: Request):
         )
         session.add(message)
         session.commit()
+
+        if chat.personnel_id not in personnel_ids:
+            if chat.personnel_id:
+                no_personnel_error(event, user_id, is_assigned=True)
+            return
 
         try:
             await ws_manager.send_json(chat.personnel_id, {
@@ -101,8 +109,8 @@ async def webhook_callback(request: Request):
         except Exception as e:
             if e == WebSocketDisconnect:
                 await ws_manager.disconnect(chat.personnel_id)
-            event.send_message("Uh-oh! Looks like your operator temporarily lost connection. They're on their way back.")
-            logging.warning(f'Bounced a user with id {user_id}')
+
+            logging.error(f"Unable to reach an operator who was previously connected: {e}")
 
     return "OK"
 
@@ -120,22 +128,25 @@ async def facebook_subscribe(mode: str = Query(None, alias="hub.mode"),
     raise HTTPException(status_code=403, detail="Invalid key")
 
 
-@app.websocket("/ws/{personnel_id}")
-async def websocket_endpoint(websocket: WebSocket, personnel_id: str):
+@app.websocket("/ws/{personnel_token}")
+async def websocket_endpoint(websocket: WebSocket, personnel_token: str):
     with Session() as session:
-        user: User = session.get(User, personnel_id)
-        if not user:
-            return HTTPException(status_code=401, detail="Unauthorized")
+        personnel_id = session.execute(text("SELECT user_id FROM \"Session\" WHERE session_token = :token"), {'token': personnel_token}).scalars().one_or_none()
+
+        user = get_personnel(session, [personnel_id])
+
+    if not personnel_id or not user:
+        return HTTPException(status_code=401, detail="Unauthorized")
 
     await ws_manager.connect(personnel_id, websocket)
 
     while ws_manager.get_client(personnel_id):
-        text = await ws_manager.receive_text(personnel_id)
+        data = await ws_manager.receive_text(personnel_id)
 
-        if not text:
+        if not data:
             continue
 
-        data = json.loads(text)
+        data = json.loads(data)
 
         with Session() as session:
             message = Message(

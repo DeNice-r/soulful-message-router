@@ -10,10 +10,13 @@ from dotenv import load_dotenv
 load_dotenv()
 local_storage_path = os.environ["LOCAL_STORAGE_PATH"]
 
-def no_personnel_error(event, user_id):
-    event.send_message("Sorry, no personnel is available right now. We'll get back to you as soon as possible.")
+def no_personnel_error(event, user_id, is_assigned=False):
+    if is_assigned:
+        message = "Ой-йой! Здається, ваш оператор тимчасово втратив зв'язок. Він повернеться найближчим часом."
+    else:
+        message = "Пробачте, зараз немає операторів онлайн 🥲. Ми зв'яжемося з вами найближчим часом. Поки що ви можете описати своє питання. Дякуємо за розуміння 🙏🏼."
+    event.send_message(message)
     logging.warning(f'Bounced a user with id {user_id}')
-    return "OK"
 
 def generate_file_path(file_name: str, file_type: str) -> str:
     if not file_name or not file_type:
