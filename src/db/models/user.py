@@ -13,7 +13,7 @@ class User(BaseModel):
     email = Column(String, unique=True)
     email_verified = Column('emailVerified', DateTime)
     image = Column(String)
-    isOnline = Column(Boolean, default=False)
+    busyness = Column(Integer, default=0)
     latestStatusConfirmationAt = Column(DateTime, default=dt.now)
     suspended = Column(Boolean, default=False)
 
