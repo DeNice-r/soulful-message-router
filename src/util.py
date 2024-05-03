@@ -6,9 +6,13 @@ from abc import ABC
 from typing import Type, Any, TypeVar
 import requests
 from dotenv import load_dotenv
+from random import choice as random_choice
 
 load_dotenv()
 local_storage_path = os.environ["LOCAL_STORAGE_PATH"]
+
+def choose_personnel(personnel_ids: list[str]):
+    return random_choice(personnel_ids) if personnel_ids else None
 
 def no_personnel_error(event, user_id, is_assigned=False):
     if is_assigned:
