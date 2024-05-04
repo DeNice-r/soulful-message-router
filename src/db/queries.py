@@ -70,3 +70,6 @@ def unarchive_chat(session: Session, chat_id: int):
     result = session.execute(unarchive_chat_query, {'chat_id': chat_id}).scalars().one_or_none()
     session.commit()
     return result
+
+def get_user_email(session: Session, personnel_id: str):
+    return session.execute(text('SELECT email FROM "User" WHERE id = :id'), {'id': personnel_id}).scalar_one()
