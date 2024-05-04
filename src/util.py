@@ -1,3 +1,4 @@
+from os import environ
 import os
 import logging
 import uuid
@@ -6,9 +7,43 @@ from abc import ABC
 from typing import Type, Any, TypeVar
 import requests
 from dotenv import load_dotenv
+from random import choice as random_choice
+import boto3
+from botocore.exceptions import ClientError
 
 load_dotenv()
-local_storage_path = os.environ["LOCAL_STORAGE_PATH"]
+local_storage_path = environ.get("LOCAL_STORAGE_PATH")
+
+def send_missed_a_message_email(to: str, chat_id: int):
+    ses_client = boto3.client(
+        'ses',
+        region_name=environ.get('AWS_REGION'),
+        aws_access_key_id=environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=environ.get('AWS_SECRET_ACCESS_KEY')
+    )
+
+    try:
+        response = ses_client.send_email(
+            Source=f'Чат Soulful <notifications@{environ.get("AWS_SES_FROM_IDENTITY")}>',
+            Destination={
+                'ToAddresses': [to]
+            },
+            Message={
+                'Subject': {
+                    'Data': 'У вас нове повідомлення на Soulful'
+                },
+                'Body': {
+                    'Html': {
+                        'Data': f"Ви отримали нове повідомлення на Soulful в чаті #{chat_id}. <a href=http://{'soulful.pp.ua' if environ.get('STAGE') == 'prod' else 'localhost'}/chat>Перейдіть на платформу, щоб відповісти</a>."
+                    }
+                }
+            }
+        )
+    except ClientError as e:
+        print("An error occurred: ", e.response['Error']['Message'])
+
+def choose_personnel(personnel_ids: list[str]):
+    return random_choice(personnel_ids) if personnel_ids else None
 
 def no_personnel_error(event, user_id, is_assigned=False):
     if is_assigned:

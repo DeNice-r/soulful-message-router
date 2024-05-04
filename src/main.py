@@ -1,7 +1,6 @@
 import json
 import logging
 from os import environ
-from random import choice as random_choice
 
 from sqlalchemy import select
 from sqlalchemy import text
@@ -13,11 +12,11 @@ from src.db.engine import Session
 from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
-from src.db.queries import get_personnel
+from src.db.queries import get_personnel, get_acquainted_chat, unarchive_chat, get_user_email
 from src.event import EventFactory
 from src.webhooks import init as webhooks_init
 from src.websocket_manager import WebSocketManager
-from src.util import no_personnel_error
+from src.util import no_personnel_error, choose_personnel, send_missed_a_message_email
 
 # Warning: This import is import'ant, even though it is not used
 from src import platforms
@@ -76,14 +75,22 @@ async def webhook_callback(request: Request):
             if not personnel_ids:
                 no_personnel_error(event, user_id)
 
-            chat = Chat(
-                user_id=user_id,
-                personnel_id=random_choice(personnel_ids) if personnel_ids else None,  # TODO: Some complicated logic to choose the personnel
-            )
-            session.add(chat)
-            session.commit()
+            acq_chat_id = get_acquainted_chat(session, personnel_ids, user_id)
 
-            event.send_message("Привіт! Як ми можемо вам допомогти? Оператор незабаром відповість вам.")
+            if acq_chat_id:
+                chat = Chat()
+                chat.id = unarchive_chat(session, acq_chat_id)
+                event.send_message("Вітаємо! Ваше попереднє звернення було відновлено. Як ми можемо вам допомогти?")
+            else:
+                personnel_id = choose_personnel(personnel_ids)
+                chat = Chat(
+                    user_id=user_id,
+                    personnel_id=personnel_id,
+                )
+                session.add(chat)
+                session.commit()
+                if personnel_id:
+                    event.send_message("Привіт! Як ми можемо вам допомогти? Оператор незабаром відповість вам.")
 
         message = Message(
             text=event.text,
@@ -96,6 +103,7 @@ async def webhook_callback(request: Request):
         if chat.personnel_id not in personnel_ids:
             if chat.personnel_id:
                 no_personnel_error(event, user_id, is_assigned=True)
+                send_missed_a_message_email(get_user_email(session, chat.personnel_id), chat.id)
             return
 
         try:
