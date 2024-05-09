@@ -28,8 +28,8 @@ class WebSocketManager:
 
     # Connect
     async def connect(self, user_id: str, websocket: WebSocket):
-        await websocket.accept()
         await self.disconnect(user_id)
+        await websocket.accept()
         self.clients[user_id] = websocket
 
     def get_client(self, user_id: str):
