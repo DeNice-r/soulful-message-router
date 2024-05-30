@@ -12,7 +12,7 @@ from src.db.engine import Session
 from src.db.models.chat import Chat
 from src.db.models.message import Message
 from src.db.models.user import User
-from src.db.queries import get_personnel, get_acquainted_chat, unarchive_chat, get_user_email
+from src.db.queries import get_personnel, get_acquainted_chat, unarchive_chat, get_user_email, get_least_busy_personnel_id
 from src.event import EventFactory
 from src.webhooks import init as webhooks_init
 from src.websocket_manager import WebSocketManager
@@ -82,7 +82,7 @@ async def webhook_callback(request: Request):
                 chat.id = unarchive_chat(session, acq_chat_id)
                 event.send_message("Вітаємо! Ваше попереднє звернення було відновлено. Як ми можемо вам допомогти?")
             else:
-                personnel_id = choose_personnel(personnel_ids)
+                personnel_id = get_least_busy_personnel_id(session, ws_manager.get_client_ids())
                 chat = Chat(
                     user_id=user_id,
                     personnel_id=personnel_id,
