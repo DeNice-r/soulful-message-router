@@ -6,7 +6,7 @@ from sqlalchemy import create_engine as alch_create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy_utils import database_exists, create_database
 
-from src.db.queries import create_unarchive_function
+from src.db.queries import register_queries
 
 load_dotenv()
 
@@ -19,7 +19,8 @@ def create_engine():
 engine = create_engine()
 
 with engine.connect() as connection:
-    connection.execute(create_unarchive_function)
+    for query in register_queries:
+        connection.execute(query)
     connection.commit()
 
 Session = sessionmaker(engine)
