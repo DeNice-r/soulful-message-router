@@ -144,11 +144,14 @@ create_unarchive_function = text("""
 register_queries = [create_get_personnel_stats_function, create_unarchive_function]
 
 get_personnel_stats_query = text("""
-    SELECT personnelId FROM get_personnel_stats() WHERE personnelId = ANY(:available_personnel_ids) LIMIT 1;
+    SELECT personnelId FROM get_personnel_stats() WHERE personnelId = ANY(:available_personnel_ids);
 """)
 
 def get_least_busy_personnel_id(session: Session, available_personnel_ids: list[str]):
-    return session.execute(get_personnel_stats_query, {'available_personnel_ids': available_personnel_ids}).scalars().one_or_none()
+    personnel_by_busyness = session.execute(get_personnel_stats_query, {'available_personnel_ids': available_personnel_ids}).scalars().all() or []
+    unmentioned_online_personnel = list(set(available_personnel_ids) - set(personnel_by_busyness))
+
+    return unmentioned_online_personnel[0] if unmentioned_online_personnel else personnel_by_busyness[0]
 
 unarchive_chat_query = text("""
     SELECT unarchive_chat(:chat_id);
