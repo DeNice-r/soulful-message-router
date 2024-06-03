@@ -12,7 +12,7 @@ create_get_personnel_stats_function = text("""
         totalMessages NUMERIC,
         normalizedMessages DOUBLE PRECISION,
         averageResponseTimeSeconds NUMERIC,
-        normalizedResponseTime NUMERIC,
+        normalizedResponseTime DOUBLE PRECISION,
         perceivedBusyness INT,
         normalizedBusyness DOUBLE PRECISION,
         normalizedScore DOUBLE PRECISION
@@ -79,10 +79,10 @@ create_get_personnel_stats_function = text("""
         ),
         MaxValues AS (
             SELECT
-                MAX("totalChats") AS maxChats,
-                MAX("totalMessages") AS maxMessages,
-                MAX("averageResponseTimeSeconds") AS maxResponseTime,
-                MAX("perceivedBusyness") AS maxBusyness
+                GREATEST(MAX("totalChats"), 1) AS maxChats,
+                GREATEST(MAX("totalMessages"), 1) AS maxMessages,
+                GREATEST(MAX("averageResponseTimeSeconds"), 1) AS maxResponseTime,
+                GREATEST(MAX("perceivedBusyness"), 1) AS maxBusyness
             FROM TotalChats
             JOIN MessagesLastHour USING ("personnelId")
             LEFT JOIN ResponseTime USING ("personnelId")
@@ -96,7 +96,7 @@ create_get_personnel_stats_function = text("""
             m."totalMessages",
             m."totalMessages"::float / mv.maxMessages AS normalizedMessages,
             r."averageResponseTimeSeconds",
-            COALESCE(r."averageResponseTimeSeconds" / mv.maxResponseTime, 0) AS normalizedResponseTime,
+            COALESCE(r."averageResponseTimeSeconds"::float / mv.maxResponseTime, 0) AS normalizedResponseTime,
             p."perceivedBusyness",
             p."perceivedBusyness"::float / mv.maxBusyness AS normalizedBusyness,
             (t."totalChats"::float / mv.maxChats + m."totalMessages"::float / mv.maxMessages +
