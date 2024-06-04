@@ -12,7 +12,7 @@ create_get_personnel_stats_function = text("""
         totalMessages NUMERIC,
         normalizedMessages DOUBLE PRECISION,
         averageResponseTimeSeconds NUMERIC,
-        normalizedResponseTime NUMERIC,
+        normalizedResponseTime DOUBLE PRECISION,
         perceivedBusyness INT,
         normalizedBusyness DOUBLE PRECISION,
         normalizedScore DOUBLE PRECISION
@@ -79,10 +79,10 @@ create_get_personnel_stats_function = text("""
         ),
         MaxValues AS (
             SELECT
-                MAX("totalChats") AS maxChats,
-                MAX("totalMessages") AS maxMessages,
-                MAX("averageResponseTimeSeconds") AS maxResponseTime,
-                MAX("perceivedBusyness") AS maxBusyness
+                GREATEST(MAX("totalChats"), 1) AS maxChats,
+                GREATEST(MAX("totalMessages"), 1) AS maxMessages,
+                GREATEST(MAX("averageResponseTimeSeconds"), 1) AS maxResponseTime,
+                GREATEST(MAX("perceivedBusyness"), 1) AS maxBusyness
             FROM TotalChats
             JOIN MessagesLastHour USING ("personnelId")
             LEFT JOIN ResponseTime USING ("personnelId")
@@ -96,7 +96,7 @@ create_get_personnel_stats_function = text("""
             m."totalMessages",
             m."totalMessages"::float / mv.maxMessages AS normalizedMessages,
             r."averageResponseTimeSeconds",
-            COALESCE(r."averageResponseTimeSeconds" / mv.maxResponseTime, 0) AS normalizedResponseTime,
+            COALESCE(r."averageResponseTimeSeconds"::float / mv.maxResponseTime, 0) AS normalizedResponseTime,
             p."perceivedBusyness",
             p."perceivedBusyness"::float / mv.maxBusyness AS normalizedBusyness,
             (t."totalChats"::float / mv.maxChats + m."totalMessages"::float / mv.maxMessages +
@@ -144,11 +144,14 @@ create_unarchive_function = text("""
 register_queries = [create_get_personnel_stats_function, create_unarchive_function]
 
 get_personnel_stats_query = text("""
-    SELECT personnelId FROM get_personnel_stats() WHERE personnelId = ANY(:available_personnel_ids) LIMIT 1;
+    SELECT personnelId FROM get_personnel_stats() WHERE personnelId = ANY(:available_personnel_ids);
 """)
 
 def get_least_busy_personnel_id(session: Session, available_personnel_ids: list[str]):
-    return session.execute(get_personnel_stats_query, {'available_personnel_ids': available_personnel_ids}).scalars().one_or_none()
+    personnel_by_busyness = session.execute(get_personnel_stats_query, {'available_personnel_ids': available_personnel_ids}).scalars().all() or []
+    unmentioned_online_personnel = list(set(available_personnel_ids) - set(personnel_by_busyness))
+
+    return unmentioned_online_personnel[0] if unmentioned_online_personnel else personnel_by_busyness[0]
 
 unarchive_chat_query = text("""
     SELECT unarchive_chat(:chat_id);

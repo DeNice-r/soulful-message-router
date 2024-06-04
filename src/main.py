@@ -52,7 +52,6 @@ async def webhook_callback(request: Request):
         logging.warning(f"Error: {e}")
         return HTTPException(status_code=400, detail=str(e))
 
-    personnel_ids = ws_manager.get_client_ids()
     user_id = event.user_unique_id
     with Session() as session:
         user: User = session.get(User, user_id)
@@ -72,10 +71,10 @@ async def webhook_callback(request: Request):
             # The following could be used to continuously verify user access to chat, probably unnecessary
             # personnel = get_personnel(session, personnel_ids)
 
-            if not personnel_ids:
+            if not ws_manager.get_client_ids():
                 no_personnel_error(event, user_id)
 
-            acq_chat_id = get_acquainted_chat(session, personnel_ids, user_id)
+            acq_chat_id = get_acquainted_chat(session, ws_manager.get_client_ids(), user_id)
 
             if acq_chat_id:
                 chat = Chat()
@@ -100,7 +99,7 @@ async def webhook_callback(request: Request):
         session.add(message)
         session.commit()
 
-        if chat.personnel_id not in personnel_ids:
+        if chat.personnel_id not in ws_manager.get_client_ids():
             if chat.personnel_id:
                 no_personnel_error(event, user_id, is_assigned=True)
                 send_missed_a_message_email(get_user_email(session, chat.personnel_id), chat.id)
