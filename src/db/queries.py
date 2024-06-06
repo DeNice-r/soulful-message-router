@@ -19,18 +19,29 @@ create_get_personnel_stats_function = text("""
     ) AS $$
     BEGIN
         RETURN QUERY
-        WITH TotalChats AS (
+        WITH Personnel AS (
+            SELECT DISTINCT u.id AS "personnelId"
+            FROM "User" u
+            LEFT JOIN "_PermissionToUser" up ON u.id = up."B"
+            LEFT JOIN "Permission" p ON up."A" = p.id
+            LEFT JOIN "_RoleToUser" ur ON u.id = ur."B"
+            LEFT JOIN "Role" r ON ur."A" = r.id
+            LEFT JOIN "_PermissionToRole" pr ON r.id = pr."B"
+            LEFT JOIN "Permission" p2 ON pr."A" = p2.id
+            WHERE p.title = ANY(ARRAY['chat:*', 'chat:*:*', '*:*', '*:*:*']) OR p2.title = ANY(ARRAY['chat:*', 'chat:*:*', '*:*', '*:*:*'])
+        ),
+        TotalChats AS (
             SELECT
                 "personnelId",
                 COUNT(*) AS "totalChats"
             FROM (
                 SELECT "personnelId"
                 FROM "Chat"
-                WHERE "personnelId" IS NOT NULL AND "createdAt" >= NOW() - INTERVAL '1 HOUR'
+                WHERE "personnelId" IS NOT NULL AND "createdAt" >= NOW() - INTERVAL '1 YEAR'
                 UNION ALL
                 SELECT "personnelId"
                 FROM "ArchivedChat"
-                WHERE "personnelId" IS NOT NULL AND "endedAt" >= NOW() - INTERVAL '1 HOUR'
+                WHERE "personnelId" IS NOT NULL AND "endedAt" >= NOW() - INTERVAL '1 YEAR'
             ) AS combined_chats
             GROUP BY "personnelId"
         ),
@@ -40,13 +51,13 @@ create_get_personnel_stats_function = text("""
                 SELECT "personnelId", COUNT(*) AS "messageCount"
                 FROM "Message"
                 JOIN "Chat" ON "Message"."chatId" = "Chat"."id"
-                WHERE "Message"."createdAt" > NOW() - INTERVAL '1 HOUR'
+                WHERE "Message"."createdAt" > NOW() - INTERVAL '1 YEAR'
                 GROUP BY "Chat"."personnelId"
                 UNION ALL
                 SELECT "personnelId", COUNT(*) AS "messageCount"
                 FROM "ArchivedMessage"
                 JOIN "ArchivedChat" ON "ArchivedMessage"."chatId" = "ArchivedChat"."id"
-                WHERE "ArchivedMessage"."createdAt" > NOW() - INTERVAL '1 HOUR'
+                WHERE "ArchivedMessage"."createdAt" > NOW() - INTERVAL '1 YEAR'
                 GROUP BY "ArchivedChat"."personnelId"
             ) AS messages
             GROUP BY "personnelId"
@@ -63,11 +74,11 @@ create_get_personnel_stats_function = text("""
                 FROM (
                     SELECT "personnelId", "chatId", m."createdAt", "isFromUser" FROM "Message" m
                     JOIN "Chat" c ON "chatId" = c.id
-                    WHERE m."createdAt" > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'
+                    WHERE m."createdAt" > CURRENT_TIMESTAMP - INTERVAL '1 YEAR'
                     UNION ALL
                     SELECT "personnelId", "chatId", am."createdAt", "isFromUser" FROM "ArchivedMessage" am
                     JOIN "ArchivedChat" ac ON "chatId" = ac.id
-                    WHERE am."createdAt" > CURRENT_TIMESTAMP - INTERVAL '1 HOUR'
+                    WHERE am."createdAt" > CURRENT_TIMESTAMP - INTERVAL '1 YEAR'
                 ) AS messages
                 WHERE "isFromUser" = TRUE
             ) AS filtered_messages
@@ -83,29 +94,31 @@ create_get_personnel_stats_function = text("""
                 GREATEST(MAX("totalMessages"), 1) AS maxMessages,
                 GREATEST(MAX("averageResponseTimeSeconds"), 1) AS maxResponseTime,
                 GREATEST(MAX("perceivedBusyness"), 1) AS maxBusyness
-            FROM TotalChats
-            JOIN MessagesLastHour USING ("personnelId")
+            FROM Personnel
+            LEFT JOIN TotalChats USING ("personnelId")
+            LEFT JOIN MessagesLastHour USING ("personnelId")
             LEFT JOIN ResponseTime USING ("personnelId")
-            JOIN PerceivedBusyness USING ("personnelId")
+            LEFT JOIN PerceivedBusyness USING ("personnelId")
         )
         SELECT
-            t."personnelId",
+            p."personnelId",
             u.name,
-            t."totalChats",
-            t."totalChats"::float / mv.maxChats AS normalizedChats,
-            m."totalMessages",
-            m."totalMessages"::float / mv.maxMessages AS normalizedMessages,
-            r."averageResponseTimeSeconds",
+            COALESCE(t."totalChats", 0) AS "totalChats",
+            COALESCE(t."totalChats", 0)::float / mv.maxChats AS normalizedChats,
+            COALESCE(m."totalMessages", 0) AS "totalMessages",
+            COALESCE(m."totalMessages", 0)::float / mv.maxMessages AS normalizedMessages,
+            COALESCE(r."averageResponseTimeSeconds", 0) AS "averageResponseTimeSeconds",
             COALESCE(r."averageResponseTimeSeconds"::float / mv.maxResponseTime, 0) AS normalizedResponseTime,
-            p."perceivedBusyness",
-            p."perceivedBusyness"::float / mv.maxBusyness AS normalizedBusyness,
-            (t."totalChats"::float / mv.maxChats + m."totalMessages"::float / mv.maxMessages +
-            COALESCE(r."averageResponseTimeSeconds"::float / mv.maxResponseTime, 0) + p."perceivedBusyness"::float / mv.maxBusyness) AS normalizedScore
-        FROM TotalChats t
-        LEFT JOIN "User" u ON t."personnelId" = u."id"
-        JOIN MessagesLastHour m ON t."personnelId" = m."personnelId"
-        LEFT JOIN ResponseTime r ON t."personnelId" = r."personnelId"
-        JOIN PerceivedBusyness p ON t."personnelId" = p."personnelId"
+            COALESCE(pb."perceivedBusyness", 0) AS "perceivedBusyness",
+            COALESCE(pb."perceivedBusyness"::float / mv.maxBusyness, 0) AS normalizedBusyness,
+            (COALESCE(t."totalChats"::float / mv.maxChats, 0) + COALESCE(m."totalMessages"::float / mv.maxMessages, 0) +
+            COALESCE(r."averageResponseTimeSeconds"::float / mv.maxResponseTime, 0) + COALESCE(pb."perceivedBusyness"::float / mv.maxBusyness, 0)) AS normalizedScore
+        FROM Personnel p
+        LEFT JOIN "User" u ON p."personnelId" = u."id"
+        LEFT JOIN TotalChats t ON p."personnelId" = t."personnelId"
+        LEFT JOIN MessagesLastHour m ON p."personnelId" = m."personnelId"
+        LEFT JOIN ResponseTime r ON p."personnelId" = r."personnelId"
+        LEFT JOIN PerceivedBusyness pb ON p."personnelId" = pb."personnelId"
         CROSS JOIN MaxValues mv
         ORDER BY normalizedScore ASC;
     END;
