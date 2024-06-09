@@ -164,6 +164,8 @@ def get_least_busy_personnel_id(session: Session, available_personnel_ids: list[
     personnel_by_busyness = session.execute(get_personnel_stats_query, {'available_personnel_ids': available_personnel_ids}).scalars().all() or []
     unmentioned_online_personnel = list(set(available_personnel_ids) - set(personnel_by_busyness))
 
+    if not personnel_by_busyness and not unmentioned_online_personnel:
+        return None
     return unmentioned_online_personnel[0] if unmentioned_online_personnel else personnel_by_busyness[0]
 
 unarchive_chat_query = text("""

@@ -100,8 +100,8 @@ async def webhook_callback(request: Request):
         session.commit()
 
         if chat.personnel_id not in ws_manager.get_client_ids():
+            no_personnel_error(event, user_id, is_assigned=True)
             if chat.personnel_id:
-                no_personnel_error(event, user_id, is_assigned=True)
                 send_missed_a_message_email(get_user_email(session, chat.personnel_id), chat.id)
             return
 
