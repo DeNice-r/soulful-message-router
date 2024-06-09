@@ -77,8 +77,8 @@ async def webhook_callback(request: Request):
             acq_chat_id = get_acquainted_chat(session, ws_manager.get_client_ids(), user_id)
 
             if acq_chat_id:
-                chat = Chat()
-                chat.id = unarchive_chat(session, acq_chat_id)
+                chat_id = unarchive_chat(session, acq_chat_id)
+                chat = session.execute(select(Chat).where(Chat.id == chat_id)).scalar_one_or_none()
                 event.send_message("Вітаємо! Ваше попереднє звернення було відновлено. Як ми можемо вам допомогти?")
             else:
                 personnel_id = get_least_busy_personnel_id(session, ws_manager.get_client_ids())
