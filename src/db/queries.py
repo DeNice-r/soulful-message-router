@@ -157,7 +157,7 @@ create_unarchive_function = text("""
 register_queries = [create_get_personnel_stats_function, create_unarchive_function]
 
 get_personnel_stats_query = text("""
-    SELECT personnelId FROM get_personnel_stats() WHERE personnelId = ANY(:available_personnel_ids);
+    SELECT personnelId, normalizedScore FROM get_personnel_stats() WHERE personnelId = ANY(:available_personnel_ids) ORDER BY normalizedScore ASC;
 """)
 
 def get_least_busy_personnel_id(session: Session, available_personnel_ids: list[str]):
